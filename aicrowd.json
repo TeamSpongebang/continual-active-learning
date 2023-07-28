@@ -1,0 +1,5 @@
+{
+    "challenge_id": "cvpr-2022-clear-challenge",
+    "task": "clear100",
+    "gpu": true
+}

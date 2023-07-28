@@ -39,6 +39,9 @@ from avalanche.training.supervised import Naive
 from avalanche.benchmarks.classic.clear import CLEAR, CLEARMetric
 
 from arguments import add_training_args, add_query_args
+from al import ActivePool
+from al.methods import NAME_TO_CLS
+from al.methods.random import RandomSampling
 from utils import set_seed, write_json
 
 
@@ -46,13 +49,12 @@ def make_scheduler(optimizer, scheduler_args):
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **scheduler_args)
     return scheduler
 
-
 def get_optimizer_schedular(model, optim_args, scheduler_args):
     optimizer = torch.optim.SGD(model.parameters(), **optim_args)
     scheduler = make_scheduler(optimizer, scheduler_args)
     return optimizer, scheduler
 
-def get_cumulative_dataset(train_stream, index):
+def get_cumulative_dataset(args, train_stream, index):
     data_set = torch.utils.data.ConcatDataset(
         [train_stream[i].dataset.train() for i in range(index+1)])
     print('length of dataset: ')
@@ -63,9 +65,37 @@ def get_cumulative_dataset(train_stream, index):
 
 def get_dataset(train_stream, index):
     data_set = train_stream[index].dataset.train()
+    return data_set
+
+class QDataset(torch.utils.data.Dataset):
+    def __init__(self, dataset, return_fn): 
+        self.dataset = dataset
+        self.return_fn = return_fn
+    def __len__(self): 
+        return len(self.dataset)
+    def __getitem__(self, index):
+        return self.return_fn(self.dataset[index])
+
+def get_return_transform(args):
+    if args.dataset_name in ['clear10', 'clear100_cvpr2022']:
+        return lambda x: x[:2]
+    else:
+        raise NotImplementedError
+
+def get_dataloader(args, train_stream, index):
+    data_set = train_stream[index].dataset.train()
     train_loader = torch.utils.data.DataLoader(data_set, 
                             batch_size=args.batch_size, shuffle=True)
     return train_loader
+
+def get_al_size(args, data_size:int=None):
+    if args.query_size <= 1.:
+        assert data_size is not None
+        size = int(data_size * args.query_size)
+    else:
+        size = args.query_size
+    return max(data_size, size)
+    
 
 def train(args, loader, model, criterion):
     optimizer, scheduler = get_optimizer_schedular(model, args.optimizer_config, args.scheduler_config)
@@ -196,6 +226,8 @@ def main(args):
         plugins=plugin_list,
     )
     
+    active_query_cls = NAME_TO_CLS[args.query_type]
+    
     # TRAINING LOOP
     print("Starting experiment...")
     results = []
@@ -203,10 +235,21 @@ def main(args):
     for index, experience in enumerate(scenario.train_stream):
         print("Start of experience: ", experience.current_experience)
         print("Current Classes: ", experience.classes_in_this_experience)
-        train_loader = get_dataset(scenario.train_stream, index)
-        # IMPLEMENT `query` Here!!
-        # PASS `train_loader`, SELECT QUERY BY AN CERTAIN METHODS
-        # NOW `sub_train_loader` SHOULD BE THE SUBSET OF `train_loader`
+        if args.active_learning:
+            # Select Query and Get Labels
+            train_dataset = get_dataset(scenario.train_stream, index)
+            query_dataset = QDataset(train_dataset, get_return_transform(args))
+            query_size = get_al_size(args, len(query_dataset))
+            
+            pool = ActivePool(train_set=train_dataset, query_set=query_dataset, test_set=None, batch_size=args.batch_size)
+            sampler = active_query_cls(model=model, pool=pool, size=query_size, device=device) \
+                if index > 0 else RandomSampling(model=model, pool=pool, size=query_size, device=device)
+            queries = sampler()
+            pool.update(queries)
+            
+            train_loader = pool.get_labeled_dataloader()
+        else:
+            train_loader = get_dataloader(args, scenario.train_stream, index)
         model = train(args, train_loader, model, criterion=criterion)
         cl_strategy.model = copy.deepcopy(model)
         torch.save(
@@ -222,7 +265,6 @@ def main(args):
         for tid, texp in enumerate(scenario.test_stream):
             exp_results.update(cl_strategy.eval(texp))
         results.append(exp_results)
-        import pdb;pdb.set_trace()
 
     # generate accuracy matrix
     num_timestamp = len(results)

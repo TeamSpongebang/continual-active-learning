@@ -30,9 +30,11 @@
   "swa_scheduler_type": "constant",
   "start_swa_at_end": true,
   
+  "active_learning": true,
+  "query_type": "entropy",
+  "query_size": 0.5,
   "init_query_size": 500,
   "eval_query_size": 500,
-  "query_size": 500,
   
   "num_episodes": 30,
   "num_ensembles": 5,

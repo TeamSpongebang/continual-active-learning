@@ -111,7 +111,8 @@ def main(args):
     )
     ROOT = Path(args.dataset_path)
     DATA_ROOT = ROOT / args.dataset_name
-    MODEL_ROOT = Path(args.save_path) / "models"
+    SAVE_ROOT = Path(args.save_path)
+    MODEL_ROOT = SAVE_ROOT / "models"
     DATA_ROOT.mkdir(parents=True, exist_ok=True)
     MODEL_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -139,10 +140,10 @@ def main(args):
 
 
     # log to Tensorboard
-    tb_logger = TensorboardLogger(ROOT)
+    tb_logger = TensorboardLogger(SAVE_ROOT)
 
     # log to text file
-    text_logger = TextLogger(open(ROOT / "log.txt", "w+"))
+    text_logger = TextLogger(open(SAVE_ROOT / "log.txt", "w+"))
 
     # print to stdout
     interactive_logger = InteractiveLogger()
@@ -203,6 +204,9 @@ def main(args):
         print("Start of experience: ", experience.current_experience)
         print("Current Classes: ", experience.classes_in_this_experience)
         train_loader = get_dataset(scenario.train_stream, index)
+        # IMPLEMENT `query` Here!!
+        # PASS `train_loader`, SELECT QUERY BY AN CERTAIN METHODS
+        # NOW `sub_train_loader` SHOULD BE THE SUBSET OF `train_loader`
         model = train(args, train_loader, model, criterion=criterion)
         cl_strategy.model = copy.deepcopy(model)
         torch.save(
@@ -214,7 +218,11 @@ def main(args):
             "Computing accuracy on the whole test set with"
             f" {EVALUATION_PROTOCOL} evaluation protocol"
         )
-        results.append(cl_strategy.eval(scenario.test_stream))
+        exp_results = {}
+        for tid, texp in enumerate(scenario.test_stream):
+            exp_results.update(cl_strategy.eval(texp))
+        results.append(exp_results)
+        import pdb;pdb.set_trace()
 
     # generate accuracy matrix
     num_timestamp = len(results)
@@ -222,13 +230,13 @@ def main(args):
     for train_idx in range(num_timestamp):
         for test_idx in range(num_timestamp):
             accuracy_matrix[train_idx][test_idx] = results[train_idx][
-                f"Top1_Acc_Stream/eval_phase/test_stream/Task00{test_idx}"]
+                f"Top1_Acc_Stream/eval_phase/test_stream/Task{test_idx:03d}"]
     print('Accuracy_matrix : ')
     print(accuracy_matrix)
     metric = CLEARMetric().get_metrics(accuracy_matrix)
     print(metric)
 
-    metric_log = open(ROOT / "metric_log.txt", "w+")
+    metric_log = open(SAVE_ROOT / "metric_log.txt", "w+")
     metric_log.write(
         f"Protocol: {EVALUATION_PROTOCOL} "
         f"Seed: {seed} "

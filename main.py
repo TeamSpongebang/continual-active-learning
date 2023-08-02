@@ -37,6 +37,7 @@ from avalanche.training.plugins import EvaluationPlugin
 from avalanche.training.plugins.lr_scheduling import LRSchedulerPlugin
 from avalanche.training.supervised import Naive
 from avalanche.benchmarks.classic.clear import CLEAR, CLEARMetric
+from al.methods.ensemble import EnsembleQuery
 
 from arguments import add_training_args, add_query_args
 from al import ActivePool
@@ -54,14 +55,17 @@ from utils.getter import (
     get_trainer,
     QDataset
 )
+from utils.freeze import freeze_random_layer
 
-    
 
-def train(args, loader, model, criterion):
+
+def train(args, loader, model, criterion, freeze:bool=False):
     optimizer, scheduler = get_optimizer_schedular(model, args.optimizer_config, args.scheduler_config)
     for epoch in range(args.num_epochs):
         acc_ = 0
         for _, data in enumerate(loader):
+            if freeze:
+                freeze_random_layer(args, model)
             input, target, _ = data
             optimizer.zero_grad()
             input = input.cuda()
@@ -202,19 +206,26 @@ def main(args):
             query_dataset = QDataset(train_dataset, get_return_transform(args))
             query_size = get_al_size(args, len(query_dataset))
             
+            checkpoints = None # Only used for ensembling
             pool = ActivePool(train_set=train_dataset, query_set=query_dataset, test_set=None, batch_size=args.batch_size)
-            sampler = active_query_cls(model=model, pool=pool, size=query_size, device=device) \
-                if index > 0 else RandomSampling(model=model, pool=pool, size=query_size, device=device)
-            queries = sampler()
+            if index == 0:
+                sampler = RandomSampling(model=model, pool=pool, size=query_size, device=device)
+                queries = sampler()
+            else:
+                sampler = active_query_cls(model=model, pool=pool, size=query_size, device=device)
+                queries = sampler(checkpoints=checkpoints) if isinstance(active_query_cls, EnsembleQuery) else sampler()
             pool.update(queries)
             
             train_loader = pool.get_labeled_dataloader()
         else:
             train_loader = get_dataloader(args, scenario.train_stream, index)
         
-        exp_results = train_fn(
+        model, exp_results = train_fn(
             train, args, train_loader, scenario.test_stream, model, 
             criterion=criterion, cl_strategy=cl_strategy, save_path=MODEL_ROOT, episode_idx=index)
+
+        if isinstance(model, tuple):
+            model, checkpoints = model
         
         results.append(exp_results)
 

@@ -21,4 +21,4 @@ def default_trainer(
     for tid, texp in enumerate(test_stream):
         exp_results.update(cl_strategy.eval(texp))
         
-    return exp_results
+    return model, exp_results

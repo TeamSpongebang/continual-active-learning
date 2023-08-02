@@ -4,19 +4,24 @@ from typing import List
 import torch
 
 def ensemble_trainer(
-    train_fn, args, dataloader, test_stream, model, criterion, 
+    train_fn, args, dataloader, test_stream, model, criterion,
     cl_strategy, save_path:str, episode_idx:int=0):
     
     ckpt_paths = []
     
     for ens in range(args.num_ensembles):
         if episode_idx == 0:
-            # Random initialization for ensemble members
-            # Re-init
-            for module in model.modules():
-                if hasattr(module, 'reset_parameters'):
-                    module.reset_parameters()
-            # model = get_model(args).to(device)
+            if args.ensemble_config.finetune:
+                # Use same model but shuffle dataloader
+                if ens == 0:
+                    org_model = copy.deepcopy(model)
+                else:
+                    model = copy.deepcopy(org_model)
+            else:
+                # Random initialization for ensemble members
+                for module in model.modules():
+                    if hasattr(module, 'reset_parameters'):
+                        module.reset_parameters()
         else:
             # Load from last episode
             ckpt_file = str(save_path / f"member_{ens}_{str(episode_idx-1).zfill(2)}.pth")
@@ -41,7 +46,7 @@ def ensemble_trainer(
     for tid, texp in enumerate(test_stream):
         exp_results.update(cl_strategy.eval(texp))
     
-    return exp_results
+    return (model, ckpt_paths), exp_results # model is unused.
     
 
 class EnsembleEvaluator(torch.nn.Module):

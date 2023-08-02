@@ -42,12 +42,30 @@ from arguments import add_training_args, add_query_args
 from al import ActivePool
 from al.methods import NAME_TO_CLS
 from al.methods.random import RandomSampling
+from trainer.ensemble_trainer import ensemble_trainer
+from trainer.trainer import default_trainer
 from utils import set_seed, write_json
 
 
 def make_scheduler(optimizer, scheduler_args):
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **scheduler_args)
     return scheduler
+
+def get_model(args):
+    if args.arch == 'resnet18':
+        return torchvision.models.resnet18(weights="IMAGENET1K_V1")
+
+    elif args.arch == 'resnet50':
+        return torchvision.models.resnet50(weights="IMAGENET1K_V1")
+
+    elif args.arch == 'vit16':
+        return torchvision.models.vit_b_16(weights="IMAGENET1K_V1")
+
+    elif args.arch == 'vit32':
+        return torchvision.models.vit_b_32(weights="IMAGENET1K_V1")
+
+    else:
+        raise NotImplementedError(f"Architecture {args.arch} not supported.")
 
 def get_optimizer_schedular(model, optim_args, scheduler_args):
     optimizer = torch.optim.SGD(model.parameters(), **optim_args)
@@ -81,6 +99,12 @@ def get_return_transform(args):
         return lambda x: x[:2]
     else:
         raise NotImplementedError
+
+def get_trainer(args):
+    if args.trainer == 'default':
+        return default_trainer
+    elif args.trainer == 'ensemble':
+        return ensemble_trainer
 
 def get_dataloader(args, train_stream, index):
     data_set = train_stream[index].dataset.train()
@@ -146,7 +170,7 @@ def main(args):
     DATA_ROOT.mkdir(parents=True, exist_ok=True)
     MODEL_ROOT.mkdir(parents=True, exist_ok=True)
 
-    model = torchvision.models.resnet18(weights=None)
+    model = get_model(args)
 
     normalize = torchvision.transforms.Normalize(
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
@@ -210,6 +234,7 @@ def main(args):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
+    train_fn = get_trainer(args)
 
     optimizer, scheduler = get_optimizer_schedular(model, args.optimizer_config, args.scheduler_config)
     criterion = torch.nn.CrossEntropyLoss()
@@ -250,20 +275,11 @@ def main(args):
             train_loader = pool.get_labeled_dataloader()
         else:
             train_loader = get_dataloader(args, scenario.train_stream, index)
-        model = train(args, train_loader, model, criterion=criterion)
-        cl_strategy.model = copy.deepcopy(model)
-        torch.save(
-            model.state_dict(),
-            str(MODEL_ROOT / f"model{str(index).zfill(2)}.pth")
-        )
-        print("Training completed")
-        print(
-            "Computing accuracy on the whole test set with"
-            f" {EVALUATION_PROTOCOL} evaluation protocol"
-        )
-        exp_results = {}
-        for tid, texp in enumerate(scenario.test_stream):
-            exp_results.update(cl_strategy.eval(texp))
+        
+        exp_results = train_fn(
+            train, args, train_loader, scenario.test_stream, model, 
+            criterion=criterion, cl_strategy=cl_strategy, save_path=MODEL_ROOT, episode_idx=index)
+        
         results.append(exp_results)
 
     # generate accuracy matrix

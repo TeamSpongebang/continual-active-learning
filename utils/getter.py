@@ -1,5 +1,6 @@
 import torch
 import torchvision
+import torch.nn as nn
 
 from trainer.ensemble_trainer import ensemble_trainer
 from trainer.trainer import default_trainer
@@ -10,20 +11,33 @@ def make_scheduler(optimizer, scheduler_args):
     return scheduler
 
 def get_model(args):
+    if args.dataset_name == 'clear10':
+        num_classes = 11
+    elif args.dataset_name == 'clear100':
+        num_classes = 100
+    else:
+        NotImplementedError
+
     if args.arch == 'resnet18':
-        return torchvision.models.resnet18(weights="IMAGENET1K_V1")
+        model = torchvision.models.resnet18(weights="IMAGENET1K_V1")
+        model.fc = nn.Linear(model.fc.in_features, num_classes)
 
     elif args.arch == 'resnet50':
-        return torchvision.models.resnet50(weights=None)
+        model = torchvision.models.resnet50(weights="IMAGENET1K_V1")
+        model.fc = nn.Linear(model.fc.in_features, num_classes)
 
     elif args.arch == 'vit16':
-        return torchvision.models.vit_b_16(weights="IMAGENET1K_V1")
+        model = torchvision.models.vit_b_16(weights="IMAGENET1K_V1")
+        model.heads.head = nn.Linear(model.heads.head.in_features, num_classes)
 
     elif args.arch == 'vit32':
-        return torchvision.models.vit_b_32(weights="IMAGENET1K_V1")
+        model = torchvision.models.vit_b_32(weights="IMAGENET1K_V1")
+        model.heads.head = nn.Linear(model.heads.head.in_features, num_classes)
 
     else:
         raise NotImplementedError(f"Architecture {args.arch} not supported.")
+
+    return model
 
 def get_optimizer_schedular(model, optim_args, scheduler_args):
     optimizer = torch.optim.SGD(model.parameters(), **optim_args)

@@ -5,33 +5,33 @@ import torch
 
 def ensemble_trainer(
     train_fn, args, dataloader, test_stream, model, criterion, 
-    cl_strategy, save_path:str, episode_idx:int=0, num_ensemble:int=5):
+    cl_strategy, save_path:str, episode_idx:int=0):
     
     ckpt_paths = []
     
-    for ens in range(num_ensemble):
+    for ens in range(args.num_ensembles):
         if episode_idx == 0:
             # Random initialization for ensemble members
-            member = copy.deepcopy(model)
-            for module in member.modules():
+            # Re-init
+            for module in model.modules():
                 if hasattr(module, 'reset_parameters'):
                     module.reset_parameters()
+            # model = get_model(args).to(device)
         else:
             # Load from last episode
             ckpt_file = str(save_path / f"member_{ens}_{str(episode_idx-1).zfill(2)}.pth")
             ckpt = torch.load(ckpt_file)
-            member = copy.deepcopy(model)
-            member.load_state_dict(ckpt)
+            model.load_state_dict(ckpt)
         
         # Train
-        member = train_fn(args, dataloader, member, criterion=criterion)
+        model = train_fn(args, dataloader, model, criterion=criterion)
         
         # Save members
         ckpt_file = str(save_path / f"member_{ens}_{str(episode_idx).zfill(2)}.pth")
-        torch.save(member.state_dict(), ckpt_file)
+        torch.save(model.state_dict(), ckpt_file)
         ckpt_paths.append(ckpt_file)
     
-    cl_strategy.model = member # EnsembleEvaluator(model, ckpt_paths=ckpt_paths)
+    cl_strategy.model = EnsembleEvaluator(model, ckpt_paths=ckpt_paths)
     
     print("Training completed")
     print(
@@ -58,11 +58,9 @@ class EnsembleEvaluator(torch.nn.Module):
     def forward(self, inputs):
         logits = []
         with torch.no_grad():
-            import pdb;pdb.set_trace()
             for member in self.members:
                 logit = member(inputs)
                 logits.append(logit)
-            import pdb;pdb.set_trace()
             logits = torch.stack(logits)
             probs = torch.softmax(logits, dim=-1)
             mean_probs = probs.mean(axis=0)

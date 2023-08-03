@@ -11,7 +11,7 @@ def ensemble_trainer(
     
     for ens in range(args.num_ensembles):
         if episode_idx == 0:
-            if args.ensemble_config["finetune"]:
+            if args.finetune:
                 # Use same model but shuffle dataloader
                 if ens == 0:
                     org_model = copy.deepcopy(model)
@@ -26,14 +26,14 @@ def ensemble_trainer(
             # Load from last episode
             ckpt_file = str(save_path / f"member_{ens}_{str(episode_idx-1).zfill(2)}.pth")
             ckpt = torch.load(ckpt_file)
-            model.load_state_dict(ckpt["state_dict"])
+            model.load_state_dict(ckpt)
         
         # Train
         model = train_fn(args, dataloader, model, criterion=criterion)
         
         # Save members
         ckpt_file = str(save_path / f"member_{ens}_{str(episode_idx).zfill(2)}.pth")
-        torch.save({"state_dict":model.state_dict()}, ckpt_file)
+        torch.save(model.state_dict(), ckpt_file)
         ckpt_paths.append(ckpt_file)
     
     cl_strategy.model = EnsembleEvaluator(model, ckpt_paths=ckpt_paths)
@@ -43,8 +43,8 @@ def ensemble_trainer(
         "Computing accuracy on the whole test set with evaluation protocol"
     )
     exp_results = {}
-    # for tid, texp in enumerate(test_stream):
-    #     exp_results.update(cl_strategy.eval(texp))
+    for tid, texp in enumerate(test_stream):
+        exp_results.update(cl_strategy.eval(texp))
     
     return (model, ckpt_paths), exp_results # model is unused.
     
@@ -54,7 +54,7 @@ class EnsembleEvaluator(torch.nn.Module):
         super().__init__()
         self.members = [copy.deepcopy(model) for _ in ckpt_paths]
         for member, ckpt_path in zip(self.members, ckpt_paths):
-            member.load_state_dict(torch.load(ckpt_path)["state_dict"])
+            member.load_state_dict(torch.load(ckpt_path))
         
     def eval(self):
         for member in self.members:

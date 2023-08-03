@@ -19,19 +19,19 @@ def get_model(args):
         NotImplementedError
 
     if args.arch == 'resnet18':
-        model = torchvision.models.resnet18(weights="IMAGENET1K_V1")
+        model = torchvision.models.resnet18(weights="IMAGENET1K_V1" if args.finetune else None)
         model.fc = nn.Linear(model.fc.in_features, num_classes)
 
     elif args.arch == 'resnet50':
-        model = torchvision.models.resnet50(weights="IMAGENET1K_V1")
+        model = torchvision.models.resnet50(weights="IMAGENET1K_V1" if args.finetune else None)
         model.fc = nn.Linear(model.fc.in_features, num_classes)
 
     elif args.arch == 'vit16':
-        model = torchvision.models.vit_b_16(weights="IMAGENET1K_V1")
+        model = torchvision.models.vit_b_16(weights="IMAGENET1K_V1" if args.finetune else None)
         model.heads.head = nn.Linear(model.heads.head.in_features, num_classes)
 
     elif args.arch == 'vit32':
-        model = torchvision.models.vit_b_32(weights="IMAGENET1K_V1")
+        model = torchvision.models.vit_b_32(weights="IMAGENET1K_V1" if args.finetune else None)
         model.heads.head = nn.Linear(model.heads.head.in_features, num_classes)
 
     else:

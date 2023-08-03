@@ -137,7 +137,8 @@ def main(args):
     tb_logger = TensorboardLogger(SAVE_ROOT)
 
     # log to text file
-    text_logger = TextLogger(open(SAVE_ROOT / "log.txt", "w+"))
+    log_stream = open(SAVE_ROOT / "log.txt", "w+")
+    text_logger = TextLogger(log_stream)
 
     # print to stdout
     interactive_logger = InteractiveLogger()
@@ -237,8 +238,9 @@ def main(args):
             train_loader = get_dataloader(args, scenario.train_stream, index)
         
         model, exp_results = train_fn(
-            train, args, train_loader, scenario.test_stream, model,
-            criterion=criterion, cl_strategy=cl_strategy, save_path=MODEL_ROOT, episode_idx=index)
+            train, args, train_loader, scenario.test_stream, model, 
+            criterion=criterion, cl_strategy=cl_strategy, save_path=MODEL_ROOT,
+            log_stream=log_stream, episode_idx=index)
 
         if isinstance(model, tuple):
             model, checkpoints = model
@@ -294,7 +296,7 @@ def create_and_parse_args() -> argparse.Namespace:
 if __name__ == '__main__':
 
     args = create_and_parse_args()
-    set_seed(args.seed)
+
     if args.config is not None:
         with open(args.config, "r") as f:
             args_dict = json.load(f)

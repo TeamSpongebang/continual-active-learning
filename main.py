@@ -219,6 +219,8 @@ def main(args):
                 # import pdb; pdb.set_trace()
                 if isinstance(queries, tuple):
                     queries, preds = queries
+
+                if args.ensemble_config.kraken:
                     idxs = queries.indices
                     if args.query_type == "ensentropy":
                         preds = torch.LongTensor([[pred[i] for i in idxs] for pred in preds])

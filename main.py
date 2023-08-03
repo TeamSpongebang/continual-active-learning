@@ -59,7 +59,7 @@ from utils.freeze import freeze_random_layer
 
 
 
-def train(args, loader, model, criterion, freeze:bool=False):
+def train(args, loader, model, criterion, freeze:bool=False, log_stream=None):
     optimizer, scheduler = get_optimizer_schedular(model, args.optimizer_config, args.scheduler_config)
     for epoch in range(args.num_epochs):
         acc_ = 0
@@ -78,6 +78,8 @@ def train(args, loader, model, criterion, freeze:bool=False):
                             target)) / len(pred)).item()
             optimizer.step()
         acc_ = acc_/len(loader)
+        if log_stream:
+            print(f'training accuracy for epoch {epoch} is {acc_}', file=log_stream, flush=True)
         print(f'training accuracy for epoch {epoch} is {acc_}')
         scheduler.step()
     return model

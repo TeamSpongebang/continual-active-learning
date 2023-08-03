@@ -5,7 +5,7 @@ import torch
 
 def ensemble_trainer(
     train_fn, args, dataloader, test_stream, model, criterion,
-    cl_strategy, save_path:str, episode_idx:int=0):
+    cl_strategy, save_path:str, episode_idx:int=0, log_stream=None):
     
     ckpt_paths = []
     
@@ -29,7 +29,7 @@ def ensemble_trainer(
             model.load_state_dict(ckpt)
         
         # Train
-        model = train_fn(args, dataloader, model, criterion=criterion)
+        model = train_fn(args, dataloader, model, criterion=criterion, log_stream=log_stream)
         
         # Save members
         ckpt_file = str(save_path / f"member_{ens}_{str(episode_idx).zfill(2)}.pth")

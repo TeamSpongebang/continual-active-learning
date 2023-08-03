@@ -3,9 +3,9 @@ import torch
 
 def default_trainer(
     train_fn, args, dataloader, test_stream, model, criterion,
-    cl_strategy, save_path, episode_idx):
+    cl_strategy, save_path, episode_idx, log_stream=None):
     
-    model = train_fn(args, dataloader, model, criterion=criterion)
+    model = train_fn(args, dataloader, model, criterion=criterion, log_stream=log_stream)
     
     cl_strategy.model = copy.deepcopy(model)
     torch.save(

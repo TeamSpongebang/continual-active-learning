@@ -59,7 +59,7 @@ from utils.freeze import freeze_random_layer
 
 
 
-def train(args, loader, model, criterion, freeze:bool=False):
+def train(args, loader, model, criterion, freeze:bool=False, log_stream=None):
     optimizer, scheduler = get_optimizer_schedular(model, args.optimizer_config, args.scheduler_config)
     for epoch in range(args.num_epochs):
         acc_ = 0
@@ -78,7 +78,9 @@ def train(args, loader, model, criterion, freeze:bool=False):
                             target)) / len(pred)).item()
             optimizer.step()
         acc_ = acc_/len(loader)
-        print(f'training accuracy for epoch {epoch} is {acc_}')
+        print(f'training accuracy for epoch {epoch} is {100*acc_:.4f}')
+        if log_stream:
+            print(f'training accuracy for epoch {epoch} is {100*acc_:.4f}',  file=log_stream, flush=True)
         scheduler.step()
     return model
 
@@ -137,7 +139,8 @@ def main(args):
     tb_logger = TensorboardLogger(SAVE_ROOT)
 
     # log to text file
-    text_logger = TextLogger(open(SAVE_ROOT / "log.txt", "w+"))
+    log_stream = open(SAVE_ROOT / "log.txt", "w+")
+    text_logger = TextLogger(log_stream)
 
     # print to stdout
     interactive_logger = InteractiveLogger()
@@ -222,7 +225,8 @@ def main(args):
         
         model, exp_results = train_fn(
             train, args, train_loader, scenario.test_stream, model, 
-            criterion=criterion, cl_strategy=cl_strategy, save_path=MODEL_ROOT, episode_idx=index)
+            criterion=criterion, cl_strategy=cl_strategy, save_path=MODEL_ROOT, 
+            log_stream=log_stream, episode_idx=index)
 
         if isinstance(model, tuple):
             model, checkpoints = model

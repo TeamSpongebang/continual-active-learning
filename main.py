@@ -197,6 +197,7 @@ def main(args):
     print("Starting experiment...")
     results = []
     print("Current protocol : ", EVALUATION_PROTOCOL)
+    checkpoints = None
     for index, experience in enumerate(scenario.train_stream):
         print("Start of experience: ", experience.current_experience)
         print("Current Classes: ", experience.classes_in_this_experience)
@@ -206,14 +207,29 @@ def main(args):
             query_dataset = QDataset(train_dataset, get_return_transform(args))
             query_size = get_al_size(args, len(query_dataset))
             
-            checkpoints = None # Only used for ensembling
+             # Only used for ensembling
             pool = ActivePool(train_set=train_dataset, query_set=query_dataset, test_set=None, batch_size=args.batch_size)
             if index == 0:
                 sampler = RandomSampling(model=model, pool=pool, size=query_size, device=device)
                 queries = sampler()
             else:
                 sampler = active_query_cls(model=model, pool=pool, size=query_size, device=device)
-                queries = sampler(checkpoints=checkpoints) if isinstance(active_query_cls, EnsembleQuery) else sampler()
+                queries = sampler(checkpoints=checkpoints) if isinstance(sampler, EnsembleQuery) else sampler()
+                # import pdb; pdb.set_trace()
+                if isinstance(queries, tuple):
+                    queries, preds = queries
+                    idxs = queries.indices
+                    if args.query_type == "ensentropy":
+                        preds = torch.LongTensor([[pred[i] for i in idxs] for pred in preds])
+                    else:
+                        preds = torch.LongTensor([[torch.argmax(pred[i], dim=-1) for i in idxs] for pred in preds])
+
+                    labels = torch.LongTensor([query_dataset.dataset.targets[i] for i in idxs]).unsqueeze(0).expand_as(preds)
+                    # calculate accuracy per model using prediction matrix
+                    accuracy_per_model = (preds == labels).sum(dim=-1).float() / labels.size()[-1]
+                    best_idx = accuracy_per_model.argmax().item()
+                    model.load_state_dict(torch.load(checkpoints[best_idx])["state_dict"])
+
             pool.update(queries)
             
             train_loader = pool.get_labeled_dataloader()
@@ -221,7 +237,7 @@ def main(args):
             train_loader = get_dataloader(args, scenario.train_stream, index)
         
         model, exp_results = train_fn(
-            train, args, train_loader, scenario.test_stream, model, 
+            train, args, train_loader, scenario.test_stream, model,
             criterion=criterion, cl_strategy=cl_strategy, save_path=MODEL_ROOT, episode_idx=index)
 
         if isinstance(model, tuple):
@@ -278,7 +294,7 @@ def create_and_parse_args() -> argparse.Namespace:
 if __name__ == '__main__':
 
     args = create_and_parse_args()
-
+    set_seed(args.seed)
     if args.config is not None:
         with open(args.config, "r") as f:
             args_dict = json.load(f)

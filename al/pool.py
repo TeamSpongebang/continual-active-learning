@@ -134,7 +134,7 @@ class ActivePool:
             warnings.warn("Updated indices may contain duplicates from itself.")
 
         self.active_data.indices = indices
-        self.labeled_data.indices   = labeled_ids
+        self.labeled_data.indices = labeled_ids
         self.unlabeled_data.indices = self.reverse_ids(self.get_labeled_ids() + self.get_eval_ids() + self.get_leftover_ids())
 
     def update_eval(self, result: Union[QueryResult, Sequence[int]], original_ids: bool=False):

@@ -69,9 +69,12 @@ class EnsembleQuery(ActiveQuery):
         if (self.max_size is not None) and (self.max_size > 0):
             temp_ids = temp_query_result.indices
             true_ids = [random_ids[idx] for idx in temp_ids]
-            return QueryResult(scores=temp_query_result.scores, indices=true_ids, info=temp_query_result.info)
+            return QueryResult(scores=temp_query_result.scores, indices=true_ids, info=temp_query_result.info), query_results
         else:
-            return temp_query_result
+            return temp_query_result, query_results
+
+    def best_model_selection(self):
+        raise NotImplementedError
 
     @abstractmethod
     def _query_impl(self, size: int, dataloader: Iterable, **kwargs) -> Union[List, torch.Tensor, np.ndarray, Any]:

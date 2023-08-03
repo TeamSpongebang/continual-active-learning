@@ -90,4 +90,4 @@ def get_al_size(args, data_size:int=None):
         size = int(data_size * args.query_size)
     else:
         size = args.query_size
-    return max(data_size, size)
+    return min(data_size, size)

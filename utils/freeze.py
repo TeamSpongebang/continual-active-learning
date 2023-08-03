@@ -4,8 +4,8 @@ import torch
 import torchvision
 
 def freeze_random_layer(args, model):
-    freeze_rate = args.ensemble_config.freeze_rate
-    freeze_num = args.ensemble_config.freeze_num
+    freeze_rate = args.ensemble_config["freeze_rate"]
+    freeze_num = args.ensemble_config["freeze_num"]
     
     if isinstance(model, torchvision.models.vision_transformer.VisionTransformer):
         layers = model.encoder.layers
@@ -24,8 +24,9 @@ def freeze_random_layer(args, model):
     freeze_n = freeze_num if freeze_num is not None else int(freeze_rate * n_layers)
     
     # Unfreeze all
-    for p in layers.parameters():
-        p.requires_grad_(True)
+    for layer in layers:
+        for p in layer.parameters():
+            p.requires_grad_(True)
 
     # Select layers to be frozen
     layers = np.random.choice(layers, freeze_n)

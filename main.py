@@ -59,12 +59,12 @@ from utils.freeze import freeze_random_layer
 
 
 
-def train(args, loader, model, criterion, freeze:bool=False, log_stream=None):
+def train(args, loader, model, criterion, log_stream=None):
     optimizer, scheduler = get_optimizer_schedular(model, args.optimizer_config, args.scheduler_config)
     for epoch in range(args.num_epochs):
         acc_ = 0
         for _, data in enumerate(loader):
-            if freeze:
+            if args.ensemble_config["freezing"]:
                 freeze_random_layer(args, model)
             input, target, _ = data
             optimizer.zero_grad()
@@ -222,7 +222,7 @@ def main(args):
                 if isinstance(queries, tuple):
                     queries, preds = queries
 
-                if args.ensemble_config.kraken:
+                if args.ensemble_config["kraken"]:
                     idxs = queries.indices
                     if args.query_type == "ensentropy":
                         preds = torch.LongTensor([[pred[i] for i in idxs] for pred in preds])
@@ -307,6 +307,8 @@ if __name__ == '__main__':
         args.__dict__.update(args_dict)
 
     print(vars(args))
+
+    set_seed(args.seed)
 
     args.run_name = f"{args.dataset_name}_{args.run_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     args.save_path = os.path.join(args.save_path, args.run_name)

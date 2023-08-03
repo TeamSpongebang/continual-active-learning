@@ -11,7 +11,7 @@ def ensemble_trainer(
     
     for ens in range(args.num_ensembles):
         if episode_idx == 0:
-            if args.ensemble_config.finetune:
+            if args.finetune:
                 # Use same model but shuffle dataloader
                 if ens == 0:
                     org_model = copy.deepcopy(model)
@@ -43,8 +43,8 @@ def ensemble_trainer(
         "Computing accuracy on the whole test set with evaluation protocol"
     )
     exp_results = {}
-    for tid, texp in enumerate(test_stream):
-        exp_results.update(cl_strategy.eval(texp))
+    # for tid, texp in enumerate(test_stream):
+    #     exp_results.update(cl_strategy.eval(texp))
     
     return (model, ckpt_paths), exp_results # model is unused.
     

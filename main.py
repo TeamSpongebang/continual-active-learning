@@ -55,7 +55,7 @@ from utils.getter import (
     get_trainer,
     QDataset
 )
-from utils.freeze import freeze_random_layer
+from utils.freeze import freeze_random_layer as frz_layer
 
 
 
@@ -70,7 +70,7 @@ def train(args, loader, model, criterion, freeze_random_layer:bool=False, log_st
         acc_ = 0
         for _, data in enumerate(loader):
             if freeze_random_layer:
-                freeze_random_layer(args, model)
+                frz_layer(args, model)
             input, target, _ = data
             optimizer.zero_grad()
             input = input.cuda()

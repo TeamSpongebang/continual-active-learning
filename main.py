@@ -214,9 +214,11 @@ def main(args):
              # Only used for ensembling
             pool = ActivePool(train_set=train_dataset, query_set=query_dataset, test_set=None, batch_size=args.batch_size)
             if index == 0:
+                print(f"-- Start querying by RandomSampling with the budget {query_size} --")
                 sampler = RandomSampling(model=model, pool=pool, size=query_size, device=device)
                 queries = sampler()
             else:
+                print(f"-- Start querying by {active_query_cls} with the budget {query_size} --")
                 sampler = active_query_cls(model=model, pool=pool, size=query_size, device=device)
                 queries = sampler(checkpoints=checkpoints) if isinstance(sampler, EnsembleQuery) else sampler()
                 if isinstance(queries, tuple):
@@ -233,7 +235,7 @@ def main(args):
                     # calculate accuracy per model using prediction matrix
                     accuracy_per_model = (preds == labels).sum(dim=-1).float() / labels.size()[-1]
                     best_idx = accuracy_per_model.argmax().item()
-                    model.load_state_dict(torch.load(checkpoints[best_idx])["state_dict"])
+                    model.load_state_dict(torch.load(checkpoints[best_idx]))
 
             pool.update(queries)
             

@@ -58,7 +58,7 @@ class EnsembleQuery(ActiveQuery):
         temp_state_dict = deepcopy(self.model.state_dict())
         query_results = []
         for ckpt in tqdm(checkpoints, desc=self.__class__.__name__, unit="model"):
-            self.model.load_state_dict(torch.load(ckpt)["state_dict"])
+            self.model.load_state_dict(torch.load(ckpt))
             query_results.append(self._query_impl(size, dataloader, **kwargs))
         scores = self.postprocess(query_results)
 

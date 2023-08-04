@@ -59,12 +59,17 @@ from utils.freeze import freeze_random_layer
 
 
 
-def train(args, loader, model, criterion, log_stream=None):
+DATA2NUMCLASS = {
+    "clear10":11,
+    "cleaer100":100,
+}
+
+def train(args, loader, model, criterion, freeze_random_layer:bool=False, log_stream=None):
     optimizer, scheduler = get_optimizer_schedular(model, args.optimizer_config, args.scheduler_config)
     for epoch in range(args.num_epochs):
         acc_ = 0
         for _, data in enumerate(loader):
-            if args.ensemble_config["freezing"]:
+            if freeze_random_layer:
                 freeze_random_layer(args, model)
             input, target, _ = data
             optimizer.zero_grad()
@@ -92,6 +97,8 @@ def main(args):
         f"This script will train on {args.dataset_name}. "
         "You may change the dataset in command argument or config file."
     )
+    
+    args.num_classes = DATA2NUMCLASS[args.dataset_name]
 
     # please refer to paper for discussion on streaming v.s. iid protocol
     EVALUATION_PROTOCOL = args.evaluation_protocol

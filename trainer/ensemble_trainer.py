@@ -29,7 +29,7 @@ def ensemble_trainer(
             model.load_state_dict(ckpt)
         
         # Train
-        model = train_fn(args, dataloader, model, criterion=criterion, log_stream=log_stream)
+        model = train_fn(args, dataloader, model, criterion=criterion, freeze_random_layer=args.ensemble_config['freezing'], log_stream=log_stream)
         
         # Save members
         ckpt_file = str(save_path / f"member_{ens}_{str(episode_idx).zfill(2)}.pth")

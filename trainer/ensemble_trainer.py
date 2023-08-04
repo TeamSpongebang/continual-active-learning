@@ -10,8 +10,8 @@ def ensemble_trainer(
     ckpt_paths = []
     
     for ens in range(args.num_ensembles):
-        if episode_idx == 0 or args.ensemble_config["kraken"]:
-            if args.finetune or args.ensemble_config["kraken"]:
+        if episode_idx == 0 or args.pass_best_model_on_queried_pool:
+            if args.use_pretrained or args.pass_best_model_on_queried_pool:
                 # Use same model but shuffle dataloader
                 if ens == 0:
                     org_model = copy.deepcopy(model)

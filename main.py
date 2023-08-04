@@ -160,7 +160,7 @@ def main(args):
         loggers=[interactive_logger, text_logger, tb_logger],
     )
 
-    if EVALUATION_PROTOCOL == "streaming":
+    if EVALUATION_PROTOCOL.split("_")[0] == "streaming":
         seed = None
     else:
         seed = args.seed
@@ -173,6 +173,7 @@ def main(args):
         train_transform=train_transform,
         eval_transform=test_transform,
         dataset_root=DATA_ROOT,
+        bucket_list=args.dataset_bucket_list
     )
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -218,11 +219,10 @@ def main(args):
             else:
                 sampler = active_query_cls(model=model, pool=pool, size=query_size, device=device)
                 queries = sampler(checkpoints=checkpoints) if isinstance(sampler, EnsembleQuery) else sampler()
-                # import pdb; pdb.set_trace()
                 if isinstance(queries, tuple):
                     queries, preds = queries
 
-                if args.ensemble_config["kraken"]:
+                if args.pass_best_model_on_queried_pool:
                     idxs = queries.indices
                     if args.query_type == "ensentropy":
                         preds = torch.LongTensor([[pred[i] for i in idxs] for pred in preds])

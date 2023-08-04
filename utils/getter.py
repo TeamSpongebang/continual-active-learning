@@ -19,19 +19,19 @@ def get_model(args):
         NotImplementedError
 
     if args.arch == 'resnet18':
-        model = torchvision.models.resnet18(weights="IMAGENET1K_V1" if args.finetune else None)
+        model = torchvision.models.resnet18(weights="IMAGENET1K_V1" if args.use_pretrained else None)
         model.fc = nn.Linear(model.fc.in_features, num_classes)
 
     elif args.arch == 'resnet50':
-        model = torchvision.models.resnet50(weights="IMAGENET1K_V1" if args.finetune else None)
+        model = torchvision.models.resnet50(weights="IMAGENET1K_V1" if args.use_pretrained else None)
         model.fc = nn.Linear(model.fc.in_features, num_classes)
 
     elif args.arch == 'vit16':
-        model = torchvision.models.vit_b_16(weights="IMAGENET1K_V1" if args.finetune else None)
+        model = torchvision.models.vit_b_16(weights="IMAGENET1K_V1" if args.use_pretrained else None)
         model.heads.head = nn.Linear(model.heads.head.in_features, num_classes)
 
     elif args.arch == 'vit32':
-        model = torchvision.models.vit_b_32(weights="IMAGENET1K_V1" if args.finetune else None)
+        model = torchvision.models.vit_b_32(weights="IMAGENET1K_V1" if args.use_pretrained else None)
         model.heads.head = nn.Linear(model.heads.head.in_features, num_classes)
 
     else:
@@ -67,7 +67,7 @@ class QDataset(torch.utils.data.Dataset):
         return self.return_fn(self.dataset[index])
 
 def get_return_transform(args):
-    if args.dataset_name in ['clear10', 'clear100_cvpr2022']:
+    if args.dataset_name in ['clear10', 'clear100']:
         return lambda x: x[:2]
     else:
         raise NotImplementedError

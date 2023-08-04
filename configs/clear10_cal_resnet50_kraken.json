@@ -1,23 +1,32 @@
 {
-  "run_name": "vit-ensentropy-sample",
+  "run_name": "cal-sample",
   "save_path": "saved",
 
   "dataset_name": "clear10",
-  "dataset_path": "/workspace/DB/CLEAR",
-  "num_classes": 11,
+  "dataset_path": "/workspace/DB/CLEAR_NEW",
+  "dataset_bucket_list": ["4","5","6","7","8","9","10"],
+  "num_classes": 100,
+  "evaluation_protocol": "streaming_usetest",
   
-  "arch": "vit16",
   "batch_size": 256,
   "num_epochs": 1,
   "num_workers": 16,
+
+  "arch": "resnet50",
+  "use_pretrained": true,
   
   "trainer": "ensemble",
   "ensemble_config":{
-    "finetune": false,
+    "num_ensembles": 5,
     "freezing": true,
     "freeze_rate": 0.5,
     "freeze_num": null
   },
+  
+  "active_learning": true,
+  "pass_best_model_on_queried_pool": true,
+  "query_type": "ensentropy",
+  "query_size": 0.8,
 
   "optimizer": "sgd",
   "optimizer_config":{
@@ -30,13 +39,5 @@
   "scheduler_config":{
     "step_size": 1,
     "gamma": 0.9
-  },
-  
-  "active_learning": true,
-  "query_type": "ensentropy",
-  "query_size": 0.9,
-  
-  "num_ensembles": 3,
-
-  "evaluation_protocol": "streaming"
+  }  
 }

@@ -216,6 +216,7 @@ class _CLEARImage(CLEARDataset):
         transform=None,
         target_transform=None,
         loader=default_loader,
+        bucket_list=None,
     ):
         """
         Creates an instance of the CLEAR dataset.
@@ -248,11 +249,13 @@ class _CLEARImage(CLEARDataset):
         if self.split == "all":
             assert seed is None, "Specify a seed if not splitting train:test"
         else:
-            assert seed in SEED_LIST
+            # assert seed in SEED_LIST
+            pass
         self.seed = seed
         self.transform = transform
         self.target_transform = target_transform
         self.loader = loader
+        self.bucket_list = bucket_list
         self.paths: List[Union[str, Path]] = []
 
         self.class_names: List[str] = []
@@ -325,8 +328,10 @@ class _CLEARImage(CLEARDataset):
                 train_folder_path / "labeled_metadata.json"
             )
 
-            samples = []
             for bucket, data in self.labeled_metadata.items():
+                if self.bucket_list and bucket not in self.bucket_list:
+                    continue
+                samples = []
                 for class_idx, class_name in enumerate(self.class_names):
                     metadata_path = data[class_name]
                     metadata_path = train_folder_path / metadata_path

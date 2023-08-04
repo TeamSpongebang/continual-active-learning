@@ -130,9 +130,6 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Avalanche folder
-avalanche/
-
 # clear10 and clear100 folder
 clear10/
 clear100/

@@ -39,7 +39,7 @@ from avalanche.benchmarks.scenarios.generic_benchmark_creation import (
     create_generic_benchmark_from_tensor_lists,
 )
 
-EVALUATION_PROTOCOLS = ["iid", "streaming"]
+EVALUATION_PROTOCOLS = ["iid", "streaming", "streaming_usetest"]
 
 
 def CLEAR(
@@ -51,6 +51,7 @@ def CLEAR(
     train_transform: Optional[Any] = None,
     eval_transform: Optional[Any] = None,
     dataset_root: Optional[Union[str, Path]] = None,
+    bucket_list: Optional[List[str]] = None,
 ):
     """
     Creates a Domain-Incremental benchmark for CLEAR 10 & 100
@@ -116,12 +117,16 @@ def CLEAR(
         "Must specify a evaluation protocol from " f"{EVALUATION_PROTOCOLS}"
     )
 
-    if evaluation_protocol == "streaming":
+    if evaluation_protocol.split("_")[0] == "streaming":
         assert seed is None, (
             "Seed for train/test split is not required " "under streaming protocol"
         )
-        train_split = "all"
-        test_split = "all"
+        if evaluation_protocol == "streaming":
+            train_split = "all"
+            test_split = "all"
+        else:
+            train_split = "train"
+            test_split = "test"
     elif evaluation_protocol == "iid":
         assert seed in SEED_LIST, "No seed for train/test split"
         train_split = "train"
@@ -137,6 +142,7 @@ def CLEAR(
             split=train_split,
             seed=seed,
             transform=train_transform,
+            bucket_list=bucket_list
         )
         clear_dataset_test = _CLEARImage(
             root=dataset_root,
@@ -145,6 +151,7 @@ def CLEAR(
             split=test_split,
             seed=seed,
             transform=eval_transform,
+            bucket_list=bucket_list
         )
         train_samples_paths = clear_dataset_train.get_paths_and_targets(
             root_appended=True

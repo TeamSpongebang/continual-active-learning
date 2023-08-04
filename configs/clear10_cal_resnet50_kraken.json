@@ -5,7 +5,7 @@
   "dataset_name": "clear10",
   "dataset_path": "/workspace/DB/CLEAR_NEW",
   "dataset_bucket_list": ["4","5","6","7","8","9","10"],
-  "num_classes": 100,
+  "num_classes": 11,
   "evaluation_protocol": "streaming_usetest",
   
   "batch_size": 256,

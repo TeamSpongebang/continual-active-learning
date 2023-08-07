@@ -65,6 +65,9 @@ DATA2NUMCLASS = {
 }
 
 def split_loader(args, loader, valid_rate:float=0.1):
+    if valid_rate == 0:
+        print(f"Do not validate")
+        return loader, None
     print(f"Split labeled dataset by {valid_rate * 100:.2f}% of validation rate")
     valid_size = int(len(loader.dataset) * valid_rate)
     train_size = len(loader.dataset) - valid_size

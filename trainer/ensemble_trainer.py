@@ -7,7 +7,7 @@ from utils.freeze import freeze_random_layer
 
 def ensemble_trainer(
     train_fn, args, dataloader, test_stream, model, criterion,
-    cl_strategy, save_path:str, episode_idx:int=0, log_stream=None):
+    cl_strategy, save_path:str, episode_idx:int=0, log_stream=None, validloader=None):
     
     ckpt_paths = []
     
@@ -32,9 +32,9 @@ def ensemble_trainer(
         
         if args.ensemble_config['freeze_strategy'] == 'episode':
             freeze_random_layer(args, model)
-        
+
         # Train
-        model = train_fn(args, dataloader, model, criterion=criterion, freeze_strategy=args.ensemble_config['freeze_strategy'], log_stream=log_stream)
+        model = train_fn(args, dataloader, model, validloader=validloader, criterion=criterion, freeze_strategy=args.ensemble_config['freeze_strategy'], log_stream=log_stream)
         
         # Save members
         ckpt_file = str(save_path / f"member_{ens}_{str(episode_idx).zfill(2)}.pth")

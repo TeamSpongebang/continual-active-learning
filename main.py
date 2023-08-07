@@ -64,11 +64,29 @@ DATA2NUMCLASS = {
     "cleaer100":100,
 }
 
-def train(args, loader, model, criterion, freeze_strategy:str=None, log_stream=None):
+def split_loader(args, loader, valid_rate:float=0.1):
+    print(f"Split labeled dataset by {valid_rate * 100:.2f}% of validation rate")
+    valid_size = int(len(loader.dataset) * valid_rate)
+    train_size = len(loader.dataset) - valid_size
+    trainset, validset = torch.utils.data.random_split(loader.dataset, [train_size, valid_size])
+    train_loader = torch.utils.data.DataLoader(trainset, 
+                            batch_size=args.batch_size, shuffle=True)
+    valid_loader = torch.utils.data.DataLoader(validset, 
+                            batch_size=args.batch_size)
+    return train_loader, valid_loader
+
+def train(args, loader, model, criterion, validloader=None, freeze_strategy:str=None, log_stream=None):
     optimizer, scheduler = get_optimizer_schedular(model, args.optimizer_config, args.scheduler_config)
+    
+    best_model = None
+    best_acc = None
+    best_idx = None
     for epoch in range(args.num_epochs):
         if freeze_strategy=='epoch':
             frz_layer(args, model)
+        
+        # Train
+        model.train()
         acc_ = 0
         for _, data in enumerate(loader):
             if freeze_strategy=='batch':
@@ -89,7 +107,35 @@ def train(args, loader, model, criterion, freeze_strategy:str=None, log_stream=N
             print(f'training accuracy for epoch {epoch} is {acc_}', file=log_stream, flush=True)
         print(f'training accuracy for epoch {epoch} is {acc_}')
         scheduler.step()
-    return model
+        
+        if validloader:        
+            # Validation
+            model.eval()
+            val_acc_ = 0
+            with torch.no_grad():
+                for _, data in enumerate(validloader):
+                    input, target, _ = data
+                    input = input.cuda()
+                    target = target.cuda()
+                    pred = model(input)
+                    loss = criterion(pred, target)
+                    val_acc_ += (torch.sum(torch.eq(torch.max(pred, 1)[1], 
+                                    target)) / len(pred)).item()
+            val_acc_ = val_acc_/len(validloader)
+            if log_stream:
+                print(f'Validation accuracy for epoch {epoch} is {val_acc_}', file=log_stream, flush=True)
+            print(f'Validation accuracy for epoch {epoch} is {val_acc_}')
+            
+            if best_acc is None or val_acc_ > best_acc:
+                best_acc = val_acc_
+                best_model = model
+                best_idx = epoch
+        
+    if validloader: 
+        print(f'Best valid accuracy at {best_idx}th epoch.')
+        return best_model
+    else:        
+        return model
 
 
 def main(args):
@@ -253,10 +299,14 @@ def main(args):
             train_loader = pool.get_labeled_dataloader()
         else:
             train_loader = get_dataloader(args, scenario.train_stream, index)
+        train_loader, valid_loader = split_loader(args, train_loader)
+        
+        if log_stream:
+            print(f'{index}th Experience Training Starts', file=log_stream, flush=True)
         
         model, exp_results = train_fn(
             train, args, train_loader, scenario.test_stream, model, 
-            criterion=criterion, cl_strategy=cl_strategy, save_path=MODEL_ROOT,
+            criterion=criterion, validloader=valid_loader, cl_strategy=cl_strategy, save_path=MODEL_ROOT,
             log_stream=log_stream, episode_idx=index)
 
         if isinstance(model, tuple):

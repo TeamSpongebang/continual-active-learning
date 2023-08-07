@@ -28,7 +28,7 @@ def freeze_random_layer(args, model):
         for p in layer.parameters():
             p.requires_grad_(True)
 
-    # Select layers to be frozen
+    # Select layers to be frozen w/o replacement
     layers = np.random.choice(layers, freeze_n, replace=False)
     
     # Freeze the selected layers

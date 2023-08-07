@@ -21,6 +21,7 @@ import copy
 from datetime import datetime
 
 import numpy as np
+from collections import Counter
 import torch
 import torchvision
 from avalanche.evaluation.metrics import (
@@ -56,6 +57,7 @@ from utils.getter import (
     QDataset
 )
 from utils.freeze import freeze_random_layer as frz_layer
+from sklearn.metrics import f1_score
 
 
 
@@ -69,22 +71,22 @@ def split_loader(args, loader, valid_rate:float=0.1):
     valid_size = int(len(loader.dataset) * valid_rate)
     train_size = len(loader.dataset) - valid_size
     trainset, validset = torch.utils.data.random_split(loader.dataset, [train_size, valid_size])
-    train_loader = torch.utils.data.DataLoader(trainset, 
+    train_loader = torch.utils.data.DataLoader(trainset,
                             batch_size=args.batch_size, shuffle=True)
-    valid_loader = torch.utils.data.DataLoader(validset, 
+    valid_loader = torch.utils.data.DataLoader(validset,
                             batch_size=args.batch_size)
     return train_loader, valid_loader
 
 def train(args, loader, model, criterion, validloader=None, freeze_strategy:str=None, log_stream=None):
     optimizer, scheduler = get_optimizer_schedular(model, args.optimizer_config, args.scheduler_config)
-    
+
     best_model = None
     best_acc = None
     best_idx = None
     for epoch in range(args.num_epochs):
         if freeze_strategy=='epoch':
             frz_layer(args, model)
-        
+
         # Train
         model.train()
         acc_ = 0
@@ -107,8 +109,8 @@ def train(args, loader, model, criterion, validloader=None, freeze_strategy:str=
             print(f'training accuracy for epoch {epoch} is {acc_}', file=log_stream, flush=True)
         print(f'training accuracy for epoch {epoch} is {acc_}')
         scheduler.step()
-        
-        if validloader:        
+
+        if validloader:
             # Validation
             model.eval()
             val_acc_ = 0
@@ -119,22 +121,22 @@ def train(args, loader, model, criterion, validloader=None, freeze_strategy:str=
                     target = target.cuda()
                     pred = model(input)
                     loss = criterion(pred, target)
-                    val_acc_ += (torch.sum(torch.eq(torch.max(pred, 1)[1], 
+                    val_acc_ += (torch.sum(torch.eq(torch.max(pred, 1)[1],
                                     target)) / len(pred)).item()
             val_acc_ = val_acc_/len(validloader)
             if log_stream:
                 print(f'Validation accuracy for epoch {epoch} is {val_acc_}', file=log_stream, flush=True)
             print(f'Validation accuracy for epoch {epoch} is {val_acc_}')
-            
+
             if best_acc is None or val_acc_ > best_acc:
                 best_acc = val_acc_
                 best_model = model
                 best_idx = epoch
-        
-    if validloader: 
+
+    if validloader:
         print(f'Best valid accuracy at {best_idx}th epoch.')
         return best_model
-    else:        
+    else:
         return model
 
 
@@ -278,32 +280,35 @@ def main(args):
                 queries = sampler(checkpoints=checkpoints) if isinstance(sampler, EnsembleQuery) else sampler()
                 if isinstance(queries, tuple):
                     queries, preds = queries
+                idxs = queries.indices
+                labels = torch.LongTensor([query_dataset.dataset.targets[i] for i in idxs]).tolist()
+                samples_n = Counter(labels)
+                if log_stream:
+                    print(f'queried samples {samples_n}', file=log_stream, flush=True)
+                print(f'queried samples {samples_n}', file=log_stream, flush=True)
 
                 if args.pass_best_model_on_queried_pool:
-                    idxs = queries.indices
                     if args.query_type == "ensentropy":
                         preds = torch.LongTensor([[pred[i] for i in idxs] for pred in preds])
                     else:
                         preds = torch.LongTensor([[torch.argmax(pred[i], dim=-1) for i in idxs] for pred in preds])
-
-                    labels = torch.LongTensor([query_dataset.dataset.targets[i] for i in idxs]).unsqueeze(0).expand_as(preds)
                     # calculate accuracy per model using prediction matrix
-                    accuracy_per_model = (preds == labels).sum(dim=-1).float() / labels.size()[-1]
+                    accuracy_per_model = torch.Tensor([f1_score(labels, pred, average="macro") for pred in preds])
                     best_idx = accuracy_per_model.argmax().item()
                     model.load_state_dict(torch.load(checkpoints[best_idx]))
 
             pool.update(queries)
-            
+
             print(f"-- Completed labeling queries --")
-            
+
             train_loader = pool.get_labeled_dataloader()
         else:
             train_loader = get_dataloader(args, scenario.train_stream, index)
         train_loader, valid_loader = split_loader(args, train_loader)
-        
+
         if log_stream:
             print(f'{index}th Experience Training Starts', file=log_stream, flush=True)
-        
+
         model, exp_results = train_fn(
             train, args, train_loader, scenario.test_stream, model, 
             criterion=criterion, validloader=valid_loader, cl_strategy=cl_strategy, save_path=MODEL_ROOT,

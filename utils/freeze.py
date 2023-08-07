@@ -29,7 +29,7 @@ def freeze_random_layer(args, model):
             p.requires_grad_(True)
 
     # Select layers to be frozen
-    layers = np.random.choice(layers, freeze_n)
+    layers = np.random.choice(layers, freeze_n, replace=False)
     
     # Freeze the selected layers
     for layer in layers:

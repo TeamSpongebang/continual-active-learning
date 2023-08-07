@@ -64,12 +64,14 @@ DATA2NUMCLASS = {
     "cleaer100":100,
 }
 
-def train(args, loader, model, criterion, freeze_random_layer:bool=False, log_stream=None):
+def train(args, loader, model, criterion, freeze_strategy:str=None, log_stream=None):
     optimizer, scheduler = get_optimizer_schedular(model, args.optimizer_config, args.scheduler_config)
     for epoch in range(args.num_epochs):
+        if freeze_strategy=='epoch':
+            frz_layer(args, model)
         acc_ = 0
         for _, data in enumerate(loader):
-            if freeze_random_layer:
+            if freeze_strategy=='batch':
                 frz_layer(args, model)
             input, target, _ = data
             optimizer.zero_grad()
@@ -245,6 +247,8 @@ def main(args):
                     model.load_state_dict(torch.load(checkpoints[best_idx]))
 
             pool.update(queries)
+            
+            print(f"-- Completed labeling queries --")
             
             train_loader = pool.get_labeled_dataloader()
         else:

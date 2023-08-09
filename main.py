@@ -63,7 +63,7 @@ from sklearn.metrics import f1_score
 
 DATA2NUMCLASS = {
     "clear10":11,
-    "cleaer100":100,
+    "clear100":100,
 }
 
 def split_loader(args, loader, valid_rate:float=0.1):

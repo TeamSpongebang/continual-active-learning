@@ -1,32 +1,31 @@
 {
-  "run_name": "cal-sample",
+  "run_name": "cal01_vit_de_ft_frz_kraken",
   "save_path": "saved",
 
-  "dataset_name": "clear10",
+  "dataset_name": "clear100",
   "dataset_path": "/workspace/DB/CLEAR_NEW",
   "dataset_bucket_list": ["4","5","6","7","8","9","10"],
-  "num_classes": 11,
   "evaluation_protocol": "streaming_usetest",
   
   "batch_size": 64,
   "num_epochs": 30,
   "num_workers": 16,
 
-  "arch": "resnet50",
+  "arch": "vit16",
   "use_pretrained": true,
   
   "trainer": "ensemble",
   "ensemble_config":{
     "num_ensembles": 5,
-    "freeze_strategy": "batch",
-    "freeze_rate": 0.5,
+    "freeze_strategy": "episode",
+    "freeze_rate": 0.3,
     "freeze_num": null
   },
   
   "active_learning": true,
   "pass_best_model_on_queried_pool": true,
-  "query_type": "entropy",
-  "query_size": 0.5,
+  "query_type": "ensmaxentropy",
+  "query_size": 0.1,
 
   "optimizer": "sgd",
   "optimizer_config":{
